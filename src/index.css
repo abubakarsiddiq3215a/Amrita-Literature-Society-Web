@@ -1,0 +1,239 @@
+@import "tailwindcss";
+
+:root {
+  --ink: #faf7f1;
+  --ink-soft: #f2ede2;
+  --ink-card: #f6f1e6;
+  --paper: #1a1611;
+  --paper-90: rgba(26, 22, 17, 0.88);
+  --paper-dim: rgba(26, 22, 17, 0.58);
+  --paper-faint: rgba(26, 22, 17, 0.36);
+  --paper-hair: rgba(26, 22, 17, 0.12);
+  --rose: #8f3623;
+  --rose-dim: rgba(143, 54, 35, 0.45);
+  --radius-card: 1.1rem;
+
+  /* HSL theme bindings for shadcn components */
+  --background: 40 38% 96%;
+  --foreground: 30 20% 9%;
+  --muted-foreground: 30 10% 45%;
+  --primary: 30 20% 9%;
+  --primary-foreground: 40 38% 96%;
+  --secondary: 40 30% 92%;
+  --muted: 40 30% 92%;
+  --accent: 11 61% 35%; /* rose */
+  --border: 30 15% 85%;
+  --input: 30 15% 85%;
+}
+
+/* Dark Theme Variables Override */
+.dark-theme {
+  --ink: #13110e;
+  --ink-soft: #1d1b17;
+  --ink-card: #22201c;
+  --paper: #faf7f1;
+  --paper-90: rgba(250, 247, 241, 0.88);
+  --paper-dim: rgba(250, 247, 241, 0.58);
+  --paper-faint: rgba(250, 247, 241, 0.36);
+  --paper-hair: rgba(250, 247, 241, 0.12);
+  --rose: #e86b51;
+  --rose-dim: rgba(232, 107, 81, 0.45);
+
+  --background: 30 20% 9%;
+  --foreground: 40 38% 96%;
+  --primary: 40 38% 96%;
+  --primary-foreground: 30 20% 9%;
+  --muted-foreground: 40 10% 65%;
+  --secondary: 30 15% 15%;
+  --muted: 30 15% 15%;
+  --border: 30 10% 25%;
+  --input: 30 10% 25%;
+}
+
+/* Smooth 1s transitions for all core theme components */
+html, body, main, footer, section, div, h1, h2, h3, h4, p, span, button, a, input, select, textarea {
+  transition: background-color 1s ease-in-out, border-color 1s ease-in-out, color 1s ease-in-out, opacity 1s ease-in-out, box-shadow 1s ease-in-out;
+}
+
+@theme {
+  --font-heading: 'Instrument Serif', serif;
+  --font-body: 'Barlow', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+
+  --color-background: var(--ink);
+  --color-foreground: var(--paper);
+  --color-muted-foreground: var(--paper-dim);
+  --color-primary: var(--paper);
+  --color-primary-foreground: var(--ink);
+  --color-secondary: var(--ink-soft);
+  --color-muted: var(--ink-card);
+  --color-accent: var(--rose);
+  --color-border: var(--paper-hair);
+  --color-input: var(--paper-hair);
+}
+
+html, body {
+  font-family: var(--font-body);
+  background-color: var(--ink);
+  color: var(--paper);
+  scroll-behavior: smooth;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--rose);
+  color: #faf7f1;
+}
+
+h1, h2, h3, .font-heading {
+  font-family: 'Instrument Serif', serif;
+  font-style: italic;
+  font-weight: 400;
+  color: var(--paper);
+}
+
+/* Global 0.4s Transition on Hover for Clickables */
+a, button, [role="button"], input[type="submit"], select, input, textarea, .cursor-pointer {
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* Styled Scrollbars globally according to the paper & ink theme */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+::-webkit-scrollbar-track {
+  background: var(--ink-soft);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--paper-hair);
+  border-radius: 999px;
+  border: 1px solid var(--ink-soft);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--paper-faint);
+}
+
+/* Grain overlay */
+.grain {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  opacity: 0.045;
+  mix-blend-mode: overlay;
+}
+
+/* Liquid Glass (Light Theme Version) */
+.liquid-glass {
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: none;
+  box-shadow: 0 1px 2px rgba(26,22,17,0.05), 0 8px 20px rgba(26,22,17,0.04), inset 0 1px 0 rgba(255,255,255,0.7);
+  position: relative;
+  overflow: hidden;
+}
+.liquid-glass::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.2px;
+  background: linear-gradient(180deg,
+    rgba(26,22,17,0.16) 0%,
+    rgba(26,22,17,0.05) 20%,
+    rgba(26,22,17,0) 40%,
+    rgba(26,22,17,0) 60%,
+    rgba(26,22,17,0.05) 80%,
+    rgba(26,22,17,0.16) 100%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.liquid-glass-strong {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(34px);
+  -webkit-backdrop-filter: blur(34px);
+  border: none;
+  box-shadow: 0 4px 8px rgba(26,22,17,0.06), 0 20px 40px rgba(26,22,17,0.08), inset 0 1px 0 rgba(255,255,255,0.85);
+  position: relative;
+  overflow: hidden;
+}
+.liquid-glass-strong::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.4px;
+  background: linear-gradient(180deg,
+    rgba(26,22,17,0.2) 0%,
+    rgba(26,22,17,0.07) 20%,
+    rgba(26,22,17,0) 40%,
+    rgba(26,22,17,0) 60%,
+    rgba(26,22,17,0.07) 80%,
+    rgba(26,22,17,0.2) 100%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Scrollable Container Clean Scrollbar */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* 3D ID Card Animations */
+.card-scene {
+  perspective: 2000px;
+}
+.card-wrap-el {
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+.card-wrap-el.flipped {
+  transform: rotateY(180deg);
+}
+.card-face-el {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.card-back-el {
+  transform: rotateY(180deg);
+}
+
+/* Typist Cursor */
+.typing-cursor {
+  display: inline-block;
+  width: 3px;
+  height: 0.85em;
+  background: currentColor;
+  margin-left: 2px;
+  vertical-align: middle;
+  animation: blink 1s step-end infinite;
+}
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-10px) rotate(3deg); }
+}
+.animate-float {
+  animation: float-slow 7s ease-in-out infinite;
+}
