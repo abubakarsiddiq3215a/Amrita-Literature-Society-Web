@@ -360,7 +360,7 @@ export default function AuthModal({ onSuccess, onClose }: AuthModalProps) {
                   type="text"
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
-                  placeholder="Arjun"
+                  placeholder="e.g. ABUBAKAR"
                   className="w-full bg-white/40 border border-[var(--paper-hair)] rounded-xl px-4 py-3 text-[var(--paper)] placeholder-[var(--paper-faint)] focus:outline-none focus:border-[var(--paper-faint)]"
                   required
                 />
@@ -371,7 +371,7 @@ export default function AuthModal({ onSuccess, onClose }: AuthModalProps) {
                   type="text"
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
-                  placeholder="Mehra"
+                  placeholder="e.g. SIDDIQ"
                   className="w-full bg-white/40 border border-[var(--paper-hair)] rounded-xl px-4 py-3 text-[var(--paper)] placeholder-[var(--paper-faint)] focus:outline-none focus:border-[var(--paper-faint)]"
                   required
                 />
@@ -412,7 +412,7 @@ export default function AuthModal({ onSuccess, onClose }: AuthModalProps) {
                   className="w-full bg-[var(--ink-soft)] border border-[var(--paper-hair)] rounded-xl px-3 py-3 text-[var(--paper)] focus:outline-none focus:border-[var(--paper-faint)]"
                   required
                 >
-                  <option value="" className="text-[var(--paper-faint)]">Select Dept</option>
+                  <option value="" className="text-[var(--paper-faint)]">e.g. CSE</option>
                   <option value="CSE">CSE</option>
                   <option value="AI&DS">AI & DS</option>
                   <option value="ECE">ECE</option>
@@ -428,7 +428,7 @@ export default function AuthModal({ onSuccess, onClose }: AuthModalProps) {
                   className="w-full bg-[var(--ink-soft)] border border-[var(--paper-hair)] rounded-xl px-3 py-3 text-[var(--paper)] focus:outline-none focus:border-[var(--paper-faint)] disabled:opacity-40"
                   required
                 >
-                  <option value="">Select Sec</option>
+                  <option value="">e.g. C Section</option>
                   {sectionsList.map((sec) => (
                     <option key={sec} value={sec}>
                       {sec}
@@ -447,7 +447,7 @@ export default function AuthModal({ onSuccess, onClose }: AuthModalProps) {
                   className="w-full bg-[var(--ink-soft)] border border-[var(--paper-hair)] rounded-xl px-3 py-3 text-[var(--paper)] focus:outline-none focus:border-[var(--paper-faint)]"
                   required
                 >
-                  <option value="">Select Year</option>
+                  <option value="">e.g. 3rd Year</option>
                   <option value="1st Year">1st Year</option>
                   <option value="2nd Year">2nd Year</option>
                   <option value="3rd Year">3rd Year</option>
