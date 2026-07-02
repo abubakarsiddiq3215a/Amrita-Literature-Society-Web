@@ -3,6 +3,8 @@ import {
   BookIcon, FolderIcon, PlusIcon, TrashIcon, EyeIcon, 
   CalendarIcon, RefreshIcon, EditIcon, DownloadIcon, FileIcon, MapPinIcon 
 } from './Icons';
+import { supabase } from '../supabaseClient';
+
 
 interface Work {
   id: string;
@@ -126,138 +128,177 @@ export default function AdminPanel({ onExit, onLogout }: AdminPanelProps) {
     loadData();
   }, []);
 
-  const loadData = () => {
+  const loadData = async () => {
     // Load student works
     try {
-      const allWorks: Work[] = JSON.parse(localStorage.getItem('alsWorks') || '[]');
-      setWorks(allWorks.sort((a, b) => b.timestamp.localeCompare(a.timestamp)));
-    } catch {
+      const { data, error } = await supabase
+        .from('works')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      if (data) {
+        setWorks(data.map((w: any) => ({
+          id: w.id,
+          studentId: w.student_id,
+          studentName: w.student_name,
+          title: w.title,
+          category: w.category,
+          fileName: w.file_name,
+          fileSize: w.file_size,
+          content: w.content,
+          timestamp: w.timestamp,
+          status: w.status
+        })));
+      }
+    } catch (err) {
+      console.error(err);
       setWorks([]);
     }
 
     // Load library resources
     try {
-      let allRes: LibraryResource[] = JSON.parse(localStorage.getItem('alsLibrary') || '[]');
-      if (allRes.length === 0) {
-        allRes = [
-          { id: 'RES-1', title: 'Phonetic Starter Handbook', category: 'Workshop Notes', language: 'English', access: 'Open' },
-          { id: 'RES-2', title: 'Introduction to Dravidian Scripts', category: 'Reading Pack', language: 'Tamil / Telugu', access: 'Open' },
-          { id: 'RES-3', title: 'Hindi Conversation Prompt Deck', category: 'Practice Kit', language: 'Hindi', access: 'Members' },
-          { id: 'RES-4', title: 'Malayalam Etymology Notes', category: 'Research Digest', language: 'Malayalam', access: 'Members' }
-        ];
-        localStorage.setItem('alsLibrary', JSON.stringify(allRes));
+      const { data, error } = await supabase
+        .from('library')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      if (data) {
+        setResources(data.map((r: any) => ({
+          id: r.id,
+          title: r.title,
+          category: r.category,
+          language: r.language,
+          access: r.access,
+          fileUrl: r.file_url || undefined
+        })));
       }
-      setResources(allRes);
-    } catch {
+    } catch (err) {
+      console.error(err);
       setResources([]);
     }
 
     // Load Events
     try {
-      let allEvents = JSON.parse(localStorage.getItem('alsEvents') || '[]');
-      if (!Array.isArray(allEvents)) allEvents = [];
-      
-      const defaultEvents = [
-        { id: 'EV-1', title: 'Amrita Literature Society Inauguration', date: '14 Feb 2026', venue: 'Main Seminar Hall', description: 'The official inauguration ceremony of the Amrita Literature Society, launching regional study paths.', status: 'Past', image: '/Events/AMLS/AMLS/AMLS_1_Inaguration/image.png', reportPdf: '/Events/AMLS/AMLS/AMLS_1_Inaguration/Literacy Society Inauguration.pdf' },
-        { id: 'EV-2', title: 'Bilingual Debate Competition', date: '28 Feb 2026', venue: 'Room 302, Language Block', description: 'An engaging regional debate exploring local dialects, cultural literature, and preservation.', status: 'Past', image: '/Events/AMLS/AMLS/AMLS_2_Debate/Banner.jpeg', reportPdf: '/Events/AMLS/AMLS/AMLS_2_Debate/Event report - Tamil debate.pdf' },
-        { id: 'EV-3', title: 'Just A Minute (JAM) Challenge', date: '10 Mar 2026', venue: 'Seminar Hall B', description: 'A fast-paced verbal challenge focusing on speech fluency, vocabulary choice, and syntax speed.', status: 'Past', image: '/Events/AMLS/AMLS/AMLS_3_JAM/JAM- Brouchur.jpeg' },
-        { id: 'EV-4', title: "Women's Day Special Assembly", date: '06 Mar 2026', venue: 'Main Auditorium', description: 'Commemorating Women\'s Day with creative student skit performances and literature certifications.', status: 'Past', image: '/Events/AMLS/AMLS/AMLS_4_Womensday/brouchur.jpeg', reportPdf: '/Events/AMLS/AMLS/AMLS_4_Womensday/Programme Agenda-Womens Day-06-03-26.pdf' },
-        { id: 'EV-PDF-1', title: 'Walk & Talk (QR Code Scanning)', date: '11 Jul 2026 · 9:00 AM – 11:00 AM', venue: 'Outdoor & Acharya Hall', description: 'A walking and scanning event connecting literature and movement. Faculty Coordinator: Dr. K. S. Priya', status: 'Upcoming', image: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?q=80&w=600', studentCoordinator: '' },
-        { id: 'EV-PDF-2', title: 'Multi-Lingual Poetry Reading — poems in different languages', date: '11 Jul 2026 · 11:00 AM – 2:30 PM', venue: 'Amriteshwari Hall', description: 'A poetry recitation session exploring diverse expressions. Faculty Coordinator: Mrs. Rejini K', status: 'Upcoming', image: 'https://images.unsplash.com/photo-1473186578172-c141e6798cf4?q=80&w=600', studentCoordinator: 'Amar Maruti Kate (NC.SC.U4CSE25203)' },
-        { id: 'EV-PDF-3', title: 'English – Talk with Nature (Modelled on TEDx Talk)', date: '08 Aug 2026 · 2:30 PM – 4:25 PM', venue: 'Amriteshwari Hall', description: 'The Trial of Humanity. Faculty Coordinator: Dr. Akhila Ajith', status: 'Upcoming', image: 'https://images.unsplash.com/photo-1447752875215-b2761acb3c5d?q=80&w=600', studentCoordinator: 'Shaik Mohammed Abubakar Siddiq (NC.SC.U4CSE24229) And K Mounesh (NC.SC.U4CSE24207)' },
-        { id: 'EV-PDF-4', title: 'Touching the Sky', date: '22 Aug 2026 · 9:00 AM – 11:00 AM', venue: 'Outdoor & Acharya Hall', description: 'Photography + Poem Writing. Faculty Coordinator: Dr. K. S. Priya', status: 'Upcoming', image: 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?q=80&w=600', studentCoordinator: 'Akshayasri Baskar (NC.SC.U4CSE24106)' },
-        { id: 'EV-PDF-5', title: 'Guruvandhanam – A Literary Tribute to Teachers', date: '19 Sep 2026 · 1:30 PM – 2:45 PM', venue: 'Amriteshwari Hall', description: 'Skit, open talk (felicitating their favourite teacher), debate between teachers and students. Faculty Coordinator: Mrs. Rejini K', status: 'Upcoming', image: 'https://images.unsplash.com/photo-1524178232363-1fb2b075b655?q=80&w=600', studentCoordinator: 'Archanna A (NC.EN.U4ECE25005)' },
-        { id: 'EV-PDF-6', title: 'Winter Breeze', date: '19 Sep 2026 · 9:00 AM – 11:00 AM', venue: 'Outdoor & Acharya Hall', description: '(Autumn Breeze). Faculty Coordinator: Dr. Akhila Ajith', status: 'Upcoming', image: 'https://images.unsplash.com/photo-1482862549707-f63cb32c5fd9?q=80&w=600', studentCoordinator: 'S P SANITHA (NC.SC.U4CSE24128)' }
-      ];
+      const { data, error } = await supabase
+        .from('events')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-      let updated = [...allEvents];
-      let changed = false;
-      defaultEvents.forEach(def => {
-        if (!updated.some(ev => ev.id === def.id)) {
-          updated.push(def);
-          changed = true;
-        }
-      });
-
-      if (changed || allEvents.length === 0) {
-        localStorage.setItem('alsEvents', JSON.stringify(updated));
+      if (error) throw error;
+      if (data) {
+        setEvents(data.map((ev: any) => ({
+          id: ev.id,
+          title: ev.title,
+          date: ev.date,
+          venue: ev.venue,
+          description: ev.description,
+          status: ev.status,
+          image: ev.image,
+          reportPdf: ev.report_pdf || undefined,
+          studentCoordinator: ev.student_coordinator || undefined
+        })));
       }
-      setEvents(updated);
-    } catch {
+    } catch (err) {
+      console.error(err);
       setEvents([]);
     }
 
     // Load Core Members
     try {
-      let allMembers = JSON.parse(localStorage.getItem('alsMembers') || '[]');
-      if (!Array.isArray(allMembers)) {
-        if (typeof allMembers === 'object' && allMembers !== null) {
-          allMembers = Object.values(allMembers);
-        } else {
-          allMembers = [];
-        }
-      }
-      
-      const defaultCoreMembers = [
-        { id: 'MEM-1', name: 'Abubakar Siddiq', designation: 'President', year: '4th Year', dept: 'CSE', instagram: 'https://instagram.com', linkedin: 'https://linkedin.com', whatsapp: 'https://wa.me' },
-        { id: 'MEM-2', name: 'Ananya R.', designation: 'Vice President', year: '3rd Year', dept: 'AI & DS', instagram: 'https://instagram.com', linkedin: 'https://linkedin.com', whatsapp: 'https://wa.me' },
-        { id: 'MEM-3', name: 'Rahul Dev', designation: 'Secretary', year: '3rd Year', dept: 'English Lit', instagram: 'https://instagram.com', linkedin: 'https://linkedin.com', whatsapp: 'https://wa.me' },
-        { id: 'MEM-4', name: 'Dr. K. S. Priya', designation: 'Faculty Coordinator', year: 'Faculty', dept: 'English', instagram: 'https://instagram.com', linkedin: 'https://linkedin.com', whatsapp: 'https://wa.me' },
-        { id: 'MEM-5', name: 'Mrs. Rejini K', designation: 'Faculty Coordinator', year: 'Faculty', dept: 'English', instagram: 'https://instagram.com', linkedin: 'https://linkedin.com', whatsapp: 'https://wa.me' },
-        { id: 'MEM-6', name: 'Dr. Akhila Ajith', designation: 'Faculty Coordinator', year: 'Faculty', dept: 'English', instagram: 'https://instagram.com', linkedin: 'https://linkedin.com', whatsapp: 'https://wa.me' }
-      ];
+      const { data, error } = await supabase
+        .from('members')
+        .select('*')
+        .order('created_at', { ascending: true });
 
-      let hasDefaults = defaultCoreMembers.every(def => allMembers.some((m: any) => m.id === def.id));
-      if (!hasDefaults) {
-        const missing = defaultCoreMembers.filter(def => !allMembers.some((m: any) => m.id === def.id));
-        allMembers = [...missing, ...allMembers];
-        localStorage.setItem('alsMembers', JSON.stringify(allMembers));
+      if (error) throw error;
+      if (data) {
+        setMembers(data.map((m: any) => ({
+          id: m.id,
+          name: m.name,
+          designation: m.designation || '',
+          year: m.year || undefined,
+          dept: m.dept || undefined,
+          instagram: m.instagram || undefined,
+          linkedin: m.linkedin || undefined,
+          whatsapp: m.whatsapp || undefined,
+          avatarUrl: m.avatar_url || undefined,
+          type: (m.type as any) || undefined
+        })));
       }
-      setMembers(allMembers);
-    } catch {
+    } catch (err) {
+      console.error(err);
       setMembers([]);
     }
 
     // Load Registrations
     try {
-      const allRegs: Registration[] = JSON.parse(localStorage.getItem('alsRegistrations') || '[]');
-      setRegistrations(allRegs);
-    } catch {
+      const { data, error } = await supabase
+        .from('registrations')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      if (data) {
+        setRegistrations(data.map((r: any) => ({
+          id: r.id,
+          eventId: r.event_id,
+          studentId: r.student_id,
+          studentName: r.student_name,
+          dept: r.dept,
+          year: r.year,
+          email: r.email || undefined,
+          timestamp: r.timestamp
+        })));
+      }
+    } catch (err) {
+      console.error(err);
       setRegistrations([]);
     }
   };
 
   // Status updates for submissions
-  const handleUpdateStatus = (id: string, newStatus: 'Pending' | 'Reviewed' | 'Approved') => {
+  const handleUpdateStatus = async (id: string, newStatus: 'Pending' | 'Reviewed' | 'Approved') => {
     try {
-      const allWorks: Work[] = JSON.parse(localStorage.getItem('alsWorks') || '[]');
-      const updated = allWorks.map(w => w.id === id ? { ...w, status: newStatus } : w);
-      localStorage.setItem('alsWorks', JSON.stringify(updated));
-      setWorks(updated.sort((a, b) => b.timestamp.localeCompare(a.timestamp)));
+      const { error } = await supabase
+        .from('works')
+        .update({ status: newStatus })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setWorks(prev => prev.map(w => w.id === id ? { ...w, status: newStatus } : w));
       if (viewingWork && viewingWork.id === id) {
         setViewingWork({ ...viewingWork, status: newStatus });
       }
-    } catch (e) {
-      console.error(e);
+    } catch (err) {
+      console.error(err);
+      alert('Failed to update status.');
     }
   };
 
   // Delete submission
-  const handleDeleteSubmission = (id: string) => {
+  const handleDeleteSubmission = async (id: string) => {
     if (!window.confirm('Delete this student submission permanently?')) return;
     try {
-      const allWorks: Work[] = JSON.parse(localStorage.getItem('alsWorks') || '[]');
-      const updated = allWorks.filter(w => w.id !== id);
-      localStorage.setItem('alsWorks', JSON.stringify(updated));
-      setWorks(updated.sort((a, b) => b.timestamp.localeCompare(a.timestamp)));
+      const { error } = await supabase
+        .from('works')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setWorks(prev => prev.filter(w => w.id !== id));
       if (viewingWork && viewingWork.id === id) setViewingWork(null);
-    } catch (e) {
-      console.error(e);
+    } catch (err) {
+      console.error(err);
+      alert('Failed to delete submission.');
     }
   };
 
   // Create Library Resource
-  const handleAddResource = (e: React.FormEvent) => {
+  const handleAddResource = async (e: React.FormEvent) => {
     e.preventDefault();
     setLibError('');
 
@@ -266,45 +307,55 @@ export default function AdminPanel({ onExit, onLogout }: AdminPanelProps) {
       return;
     }
 
-    const newRes: LibraryResource = {
+    const newRes = {
       id: `RES-${Date.now()}`,
       title: newTitle.trim(),
       category: newCategory.trim(),
       language: newLanguage.trim(),
       access: newAccess,
-      fileUrl: resourceFile || undefined
+      file_url: resourceFile || null
     };
 
     try {
-      const allRes: LibraryResource[] = JSON.parse(localStorage.getItem('alsLibrary') || '[]');
-      allRes.unshift(newRes);
-      localStorage.setItem('alsLibrary', JSON.stringify(allRes));
-      setResources(allRes);
+      const { error } = await supabase
+        .from('library')
+        .insert([newRes]);
+
+      if (error) throw error;
+
+      loadData();
+
       setNewTitle('');
       setNewCategory('');
       setNewLanguage('');
       setNewAccess('Open');
       setResourceFile('');
-    } catch {
-      setLibError('Could not save resource.');
+    } catch (err: any) {
+      console.error(err);
+      setLibError(err.message || 'Could not save resource.');
     }
   };
 
   // Delete Library Resource
-  const handleDeleteResource = (id: string) => {
+  const handleDeleteResource = async (id: string) => {
     if (!window.confirm('Delete this library resource?')) return;
     try {
-      const allRes: LibraryResource[] = JSON.parse(localStorage.getItem('alsLibrary') || '[]');
-      const updated = allRes.filter(r => r.id !== id);
-      localStorage.setItem('alsLibrary', JSON.stringify(updated));
-      setResources(updated);
-    } catch (e) {
-      console.error(e);
+      const { error } = await supabase
+        .from('library')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setResources(prev => prev.filter(r => r.id !== id));
+    } catch (err) {
+      console.error(err);
+      alert('Failed to delete resource.');
     }
   };
 
   // Event CRUD Management
-  const handleSaveEvent = (e: React.FormEvent) => {
+  const handleSaveEvent = async (e: React.FormEvent) => {
     e.preventDefault();
     setEventError('');
 
@@ -313,48 +364,49 @@ export default function AdminPanel({ onExit, onLogout }: AdminPanelProps) {
       return;
     }
 
-    const allEvents: ClubEvent[] = JSON.parse(localStorage.getItem('alsEvents') || '[]');
+    const eventPayload = {
+      title: eventTitle.trim(),
+      date: eventDate.trim(),
+      venue: eventVenue.trim(),
+      description: eventDesc.trim(),
+      status: eventStatus,
+      image: eventImage.trim() || 'https://images.unsplash.com/photo-1516979187457-637abb4f9353?q=80&w=600',
+      report_pdf: eventReport.trim() || null,
+      student_coordinator: eventStudentCoordinator.trim() || null
+    };
 
-    if (editingEventId) {
-      const updated = allEvents.map(ev => ev.id === editingEventId ? {
-        ...ev,
-        title: eventTitle.trim(),
-        date: eventDate.trim(),
-        venue: eventVenue.trim(),
-        description: eventDesc.trim(),
-        status: eventStatus,
-        image: eventImage.trim() || 'https://images.unsplash.com/photo-1516979187457-637abb4f9353?q=80&w=600',
-        reportPdf: eventReport.trim() || undefined,
-        studentCoordinator: eventStudentCoordinator.trim() || undefined
-      } : ev);
-      localStorage.setItem('alsEvents', JSON.stringify(updated));
-      setEvents(updated);
-      setEditingEventId(null);
-    } else {
-      const newEv: ClubEvent = {
-        id: `EV-${Date.now()}`,
-        title: eventTitle.trim(),
-        date: eventDate.trim(),
-        venue: eventVenue.trim(),
-        description: eventDesc.trim(),
-        status: eventStatus,
-        image: eventImage.trim() || 'https://images.unsplash.com/photo-1516979187457-637abb4f9353?q=80&w=600',
-        reportPdf: eventReport.trim() || undefined,
-        studentCoordinator: eventStudentCoordinator.trim() || undefined
-      };
-      allEvents.unshift(newEv);
-      localStorage.setItem('alsEvents', JSON.stringify(allEvents));
-      setEvents(allEvents);
+    try {
+      if (editingEventId) {
+        const { error } = await supabase
+          .from('events')
+          .update(eventPayload)
+          .eq('id', editingEventId);
+
+        if (error) throw error;
+        setEditingEventId(null);
+      } else {
+        const newId = `EV-${Date.now()}`;
+        const { error } = await supabase
+          .from('events')
+          .insert([{ id: newId, ...eventPayload }]);
+
+        if (error) throw error;
+      }
+
+      loadData();
+
+      setEventTitle('');
+      setEventDate('');
+      setEventVenue('');
+      setEventDesc('');
+      setEventStatus('Upcoming');
+      setEventImage('');
+      setEventReport('');
+      setEventStudentCoordinator('');
+    } catch (err: any) {
+      console.error(err);
+      setEventError(err.message || 'Failed to save event.');
     }
-
-    setEventTitle('');
-    setEventDate('');
-    setEventVenue('');
-    setEventDesc('');
-    setEventStatus('Upcoming');
-    setEventImage('');
-    setEventReport('');
-    setEventStudentCoordinator('');
   };
 
   const handleEditEventClick = (ev: ClubEvent) => {
@@ -369,20 +421,25 @@ export default function AdminPanel({ onExit, onLogout }: AdminPanelProps) {
     setEventStudentCoordinator(ev.studentCoordinator || '');
   };
 
-  const handleDeleteEvent = (id: string) => {
+  const handleDeleteEvent = async (id: string) => {
     if (!window.confirm('Delete this event?')) return;
     try {
-      const allEvents: ClubEvent[] = JSON.parse(localStorage.getItem('alsEvents') || '[]');
-      const updated = allEvents.filter(ev => ev.id !== id);
-      localStorage.setItem('alsEvents', JSON.stringify(updated));
-      setEvents(updated);
-    } catch (e) {
-      console.error(e);
+      const { error } = await supabase
+        .from('events')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setEvents(prev => prev.filter(ev => ev.id !== id));
+    } catch (err) {
+      console.error(err);
+      alert('Failed to delete event.');
     }
   };
 
   // Member CRUD Management
-  const handleSaveMember = (e: React.FormEvent) => {
+  const handleSaveMember = async (e: React.FormEvent) => {
     e.preventDefault();
     setMemberError('');
 
@@ -391,69 +448,73 @@ export default function AdminPanel({ onExit, onLogout }: AdminPanelProps) {
       return;
     }
 
-    const allMembers: ClubMember[] = JSON.parse(localStorage.getItem('alsMembers') || '[]');
+    const memberPayload = {
+      name: memberName.trim(),
+      full_name: memberName.trim(),
+      designation: memberDesignation.trim(),
+      year: memberType === 'Faculty' ? null : memberYear.trim(),
+      dept: memberDept.trim(),
+      instagram: memberInstagram.trim() || null,
+      linkedin: memberLinkedIn.trim() || null,
+      whatsapp: memberWhatsApp.trim() || null,
+      type: memberType,
+      avatar_url: memberAvatar || null
+    };
 
-    if (editingMemberId) {
-      const updated = allMembers.map(m => m.id === editingMemberId ? {
-        ...m,
-        name: memberName.trim(),
-        designation: memberDesignation.trim(),
-        year: memberType === 'Faculty' ? undefined : memberYear.trim(),
-        dept: memberDept.trim(),
-        instagram: memberInstagram.trim() || undefined,
-        linkedin: memberLinkedIn.trim() || undefined,
-        whatsapp: memberWhatsApp.trim() || undefined,
-        type: memberType,
-        avatarUrl: memberAvatar || undefined
-      } : m);
-      localStorage.setItem('alsMembers', JSON.stringify(updated));
-      setMembers(updated);
-      setEditingMemberId(null);
-    } else {
-      const newMember: ClubMember = {
-        id: `MEM-${Date.now()}`,
-        name: memberName.trim(),
-        designation: memberDesignation.trim(),
-        year: memberType === 'Faculty' ? undefined : memberYear.trim(),
-        dept: memberDept.trim(),
-        instagram: memberInstagram.trim() || undefined,
-        linkedin: memberLinkedIn.trim() || undefined,
-        whatsapp: memberWhatsApp.trim() || undefined,
-        type: memberType,
-        avatarUrl: memberAvatar || undefined
-      };
-      allMembers.push(newMember);
-      localStorage.setItem('alsMembers', JSON.stringify(allMembers));
-      setMembers(allMembers);
+    try {
+      if (editingMemberId) {
+        const { error } = await supabase
+          .from('members')
+          .update(memberPayload)
+          .eq('id', editingMemberId);
+
+        if (error) throw error;
+        setEditingMemberId(null);
+      } else {
+        const newId = `MEM-${Date.now()}`;
+        const { error } = await supabase
+          .from('members')
+          .insert([{ id: newId, ...memberPayload }]);
+
+        if (error) throw error;
+      }
+
+      loadData();
+
+      setMemberName('');
+      setMemberDesignation('');
+      setMemberYear('');
+      setMemberDept('');
+      setMemberInstagram('');
+      setMemberLinkedIn('');
+      setMemberWhatsApp('');
+      setMemberType('Student');
+      setMemberAvatar('');
+    } catch (err: any) {
+      console.error(err);
+      setMemberError(err.message || 'Failed to save member.');
     }
-
-    setMemberName('');
-    setMemberDesignation('');
-    setMemberYear('');
-    setMemberDept('');
-    setMemberInstagram('');
-    setMemberLinkedIn('');
-    setMemberWhatsApp('');
-    setMemberType('Student');
-    setMemberAvatar('');
   };
 
   const getEmailForRegistration = (reg: Registration) => {
     if (reg.email) return reg.email;
-    try {
-      const storedMembers = JSON.parse(localStorage.getItem('alsMembers') || '[]');
-      const found = storedMembers.find((m: any) => m.id === reg.studentId);
-      if (found && found.email) return found.email;
-    } catch {}
     return '-';
   };
 
-  const handleDeleteRegistration = (regId: string) => {
+  const handleDeleteRegistration = async (regId: string) => {
     if (window.confirm("Are you sure you want to delete this event registration?")) {
-      const stored = JSON.parse(localStorage.getItem('alsRegistrations') || '[]');
-      const filtered = stored.filter((r: any) => r.id !== regId);
-      localStorage.setItem('alsRegistrations', JSON.stringify(filtered));
-      loadData();
+      try {
+        const { error } = await supabase
+          .from('registrations')
+          .delete()
+          .eq('id', regId);
+
+        if (error) throw error;
+        loadData();
+      } catch (err) {
+        console.error(err);
+        alert('Failed to delete registration.');
+      }
     }
   };
 
@@ -470,15 +531,20 @@ export default function AdminPanel({ onExit, onLogout }: AdminPanelProps) {
     setMemberAvatar(m.avatarUrl || '');
   };
 
-  const handleDeleteMember = (id: string) => {
+  const handleDeleteMember = async (id: string) => {
     if (!window.confirm('Delete this core member from list?')) return;
     try {
-      const allMembers: ClubMember[] = JSON.parse(localStorage.getItem('alsMembers') || '[]');
-      const updated = allMembers.filter(m => m.id !== id);
-      localStorage.setItem('alsMembers', JSON.stringify(updated));
-      setMembers(updated);
-    } catch (e) {
-      console.error(e);
+      const { error } = await supabase
+        .from('members')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setMembers(prev => prev.filter(m => m.id !== id));
+    } catch (err) {
+      console.error(err);
+      alert('Failed to delete member.');
     }
   };
 

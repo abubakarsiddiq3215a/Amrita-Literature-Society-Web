@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { ArrowLeftIcon, ArrowRightIcon, SearchIcon, FileIcon, MapPinIcon, DownloadIcon } from "./Icons";
+import { supabase } from "../supabaseClient";
 import EventGallery from "./EventGallery";
+
 import EventRegistration from "./EventRegistration";
 
 interface ClubMember {
@@ -80,25 +82,52 @@ export default function MainSite({ isLoggedIn, onShowPortal, currentMember }: Ma
   };
 
   useEffect(() => {
-    const loadAllData = () => {
+    const loadAllData = async () => {
+      // 1. Load library resources
       try {
-        let allRes = JSON.parse(localStorage.getItem("alsLibrary") || "[]");
-        if (allRes.length === 0) {
-          allRes = [
+        let { data: allRes, error: resError } = await supabase
+          .from('library')
+          .select('*')
+          .order('created_at', { ascending: false });
+        
+        if (resError) throw resError;
+
+        if (!allRes || allRes.length === 0) {
+          const defaultResources = [
             { id: "RES-1", title: "Phonetic Starter Handbook", category: "Workshop Notes", language: "English", access: "Open" },
             { id: "RES-2", title: "Introduction to Dravidian Scripts", category: "Reading Pack", language: "Tamil / Telugu", access: "Open" },
             { id: "RES-3", title: "Hindi Conversation Prompt Deck", category: "Practice Kit", language: "Hindi", access: "Members" },
             { id: "RES-4", title: "Malayalam Etymology Notes", category: "Research Digest", language: "Malayalam", access: "Members" }
           ];
-          localStorage.setItem("alsLibrary", JSON.stringify(allRes));
+          const { error: insertError } = await supabase.from('library').insert(defaultResources);
+          if (!insertError) {
+            allRes = defaultResources as any;
+          }
         }
-        setResources(allRes);
-      } catch { setResources([]); }
-
-      try {
-        let allEvents = JSON.parse(localStorage.getItem("alsEvents") || "[]");
-        if (!Array.isArray(allEvents)) allEvents = [];
         
+        if (allRes) {
+          setResources(allRes.map((r: any) => ({
+            id: r.id,
+            title: r.title,
+            category: r.category,
+            language: r.language,
+            access: r.access,
+            fileUrl: r.file_url || undefined
+          })));
+        }
+      } catch (err) {
+        console.error("Failed to load library resources:", err);
+      }
+
+      // 2. Load events
+      try {
+        let { data: allEvents, error: eventsError } = await supabase
+          .from('events')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (eventsError) throw eventsError;
+
         const defaultEvents = [
           { id: "EV-1", title: "Amrita Literature Society Inauguration", date: "14 Feb 2026", venue: "Main Seminar Hall", description: "The official inauguration ceremony of the Amrita Literature Society, launching regional study paths.", status: "Past", image: "/Events/AMLS/AMLS/AMLS_1_Inaguration/image.png", reportPdf: "/Events/AMLS/AMLS/AMLS_1_Inaguration/Literacy Society Inauguration.pdf" },
           { id: "EV-2", title: "Bilingual Debate Competition", date: "28 Feb 2026", venue: "Room 302, Language Block", description: "An engaging regional debate exploring local dialects, cultural literature, and preservation.", status: "Past", image: "/Events/AMLS/AMLS/AMLS_2_Debate/Banner.jpeg", reportPdf: "/Events/AMLS/AMLS/AMLS_2_Debate/Event report - Tamil debate.pdf" },
@@ -112,53 +141,124 @@ export default function MainSite({ isLoggedIn, onShowPortal, currentMember }: Ma
           { id: "EV-PDF-6", title: "Winter Breeze", date: "19 Sep 2026 · 9:00 AM – 11:00 AM", venue: "Outdoor & Acharya Hall", description: "(Autumn Breeze). Faculty Coordinator: Dr. Akhila Ajith", status: "Upcoming", image: "https://images.unsplash.com/photo-1482862549707-f63cb32c5fd9?q=80&w=600", studentCoordinator: "S P SANITHA (NC.SC.U4CSE24128)" }
         ];
 
-        let updated = [...allEvents];
-        let changed = false;
-        defaultEvents.forEach(def => {
-          if (!updated.some(ev => ev.id === def.id)) {
-            updated.push(def);
-            changed = true;
-          }
-        });
-
-        if (changed || allEvents.length === 0) {
-          localStorage.setItem("alsEvents", JSON.stringify(updated));
-        }
-        setEvents(updated);
-      } catch { setEvents([]); }
-
-      try {
-        let allMembers = JSON.parse(localStorage.getItem("alsMembers") || "[]");
-        if (!Array.isArray(allMembers)) {
-          if (typeof allMembers === 'object' && allMembers !== null) {
-            allMembers = Object.values(allMembers);
-          } else {
-            allMembers = [];
-          }
-        }
+        let updated = allEvents || [];
+        let hasChanges = false;
         
+        for (const def of defaultEvents) {
+          if (!updated.some((ev: any) => ev.id === def.id)) {
+            const { error: insError } = await supabase.from('events').insert([
+              {
+                id: def.id,
+                title: def.title,
+                date: def.date,
+                venue: def.venue,
+                description: def.description,
+                status: def.status,
+                image: def.image,
+                report_pdf: def.reportPdf || null,
+                student_coordinator: def.studentCoordinator || null
+              }
+            ]);
+            if (!insError) {
+              hasChanges = true;
+            }
+          }
+        }
+
+        if (hasChanges) {
+          const { data: refetched } = await supabase
+            .from('events')
+            .select('*')
+            .order('created_at', { ascending: false });
+          if (refetched) updated = refetched;
+        }
+
+        setEvents(updated.map((ev: any) => ({
+          id: ev.id,
+          title: ev.title,
+          date: ev.date,
+          venue: ev.venue,
+          description: ev.description,
+          status: ev.status,
+          image: ev.image,
+          reportPdf: ev.report_pdf || undefined,
+          studentCoordinator: ev.student_coordinator || undefined
+        })));
+      } catch (err) {
+        console.error("Failed to load events:", err);
+      }
+
+      // 3. Load core members
+      try {
+        let { data: allMembers, error: membersError } = await supabase
+          .from('members')
+          .select('*')
+          .order('created_at', { ascending: true });
+
+        if (membersError) throw membersError;
+
         const defaultCoreMembers = [
-          { id: "MEM-1", name: "Abubakar Siddiq", designation: "President", year: "4th Year", dept: "CSE", instagram: "https://instagram.com", linkedin: "https://linkedin.com", whatsapp: "https://wa.me" },
-          { id: "MEM-2", name: "Ananya R.", designation: "Vice President", year: "3rd Year", dept: "AI & DS", instagram: "https://instagram.com", linkedin: "https://linkedin.com", whatsapp: "https://wa.me" },
-          { id: "MEM-3", name: "Rahul Dev", designation: "Secretary", year: "3rd Year", dept: "English Lit", instagram: "https://instagram.com", linkedin: "https://linkedin.com", whatsapp: "https://wa.me" },
-          { id: "MEM-4", name: "Dr. K. S. Priya", designation: "Faculty Coordinator", year: "Faculty", dept: "English", instagram: "https://instagram.com", linkedin: "https://linkedin.com", whatsapp: "https://wa.me" },
-          { id: "MEM-5", name: "Mrs. Rejini K", designation: "Faculty Coordinator", year: "Faculty", dept: "English", instagram: "https://instagram.com", linkedin: "https://linkedin.com", whatsapp: "https://wa.me" },
-          { id: "MEM-6", name: "Dr. Akhila Ajith", designation: "Faculty Coordinator", year: "Faculty", dept: "English", instagram: "https://instagram.com", linkedin: "https://linkedin.com", whatsapp: "https://wa.me" }
+          { id: "MEM-1", name: "Abubakar Siddiq", full_name: "Abubakar Siddiq", designation: "President", year: "4th Year", dept: "CSE", instagram: "https://instagram.com", linkedin: "https://linkedin.com", whatsapp: "https://wa.me", type: "Student" },
+          { id: "MEM-2", name: "Ananya R.", full_name: "Ananya R.", designation: "Vice President", year: "3rd Year", dept: "AI & DS", instagram: "https://instagram.com", linkedin: "https://linkedin.com", whatsapp: "https://wa.me", type: "Student" },
+          { id: "MEM-3", name: "Rahul Dev", full_name: "Rahul Dev", designation: "Secretary", year: "3rd Year", dept: "English Lit", instagram: "https://instagram.com", linkedin: "https://linkedin.com", whatsapp: "https://wa.me", type: "Student" },
+          { id: "MEM-4", name: "Dr. K. S. Priya", full_name: "Dr. K. S. Priya", designation: "Faculty Coordinator", year: "Faculty", dept: "English", instagram: "https://instagram.com", linkedin: "https://linkedin.com", whatsapp: "https://wa.me", type: "Faculty" },
+          { id: "MEM-5", name: "Mrs. Rejini K", full_name: "Mrs. Rejini K", designation: "Faculty Coordinator", year: "Faculty", dept: "English", instagram: "https://instagram.com", linkedin: "https://linkedin.com", whatsapp: "https://wa.me", type: "Faculty" },
+          { id: "MEM-6", name: "Dr. Akhila Ajith", full_name: "Dr. Akhila Ajith", designation: "Faculty Coordinator", year: "Faculty", dept: "English", instagram: "https://instagram.com", linkedin: "https://linkedin.com", whatsapp: "https://wa.me", type: "Faculty" }
         ];
 
-        let hasDefaults = defaultCoreMembers.every(def => allMembers.some((m: any) => m.id === def.id));
-        if (!hasDefaults) {
-          const missing = defaultCoreMembers.filter(def => !allMembers.some((m: any) => m.id === def.id));
-          allMembers = [...missing, ...allMembers];
-          localStorage.setItem("alsMembers", JSON.stringify(allMembers));
+        let updatedMembers = allMembers || [];
+        let hasChanges = false;
+
+        for (const def of defaultCoreMembers) {
+          if (!updatedMembers.some((m: any) => m.id === def.id)) {
+            const { error: insError } = await supabase.from('members').insert([
+              {
+                id: def.id,
+                name: def.name,
+                full_name: def.full_name,
+                designation: def.designation,
+                year: def.year,
+                dept: def.dept,
+                instagram: def.instagram,
+                linkedin: def.linkedin,
+                whatsapp: def.whatsapp,
+                type: def.type
+              }
+            ]);
+            if (!insError) {
+              hasChanges = true;
+            }
+          }
         }
-        setMembers(allMembers);
-      } catch { setMembers([]); }
+
+        if (hasChanges) {
+          const { data: refetched } = await supabase
+            .from('members')
+            .select('*')
+            .order('created_at', { ascending: true });
+          if (refetched) updatedMembers = refetched;
+        }
+
+        setMembers(updatedMembers.map((m: any) => ({
+          id: m.id,
+          name: m.name,
+          designation: m.designation || "",
+          year: m.year || undefined,
+          dept: m.dept || undefined,
+          instagram: m.instagram || undefined,
+          linkedin: m.linkedin || undefined,
+          whatsapp: m.whatsapp || undefined,
+          avatarUrl: m.avatar_url || undefined,
+          type: (m.type as any) || undefined
+        })));
+      } catch (err) {
+        console.error("Failed to load members:", err);
+      }
     };
+
     loadAllData();
-    window.addEventListener("storage", loadAllData);
-    const interval = setInterval(loadAllData, 2000);
-    return () => { window.removeEventListener("storage", loadAllData); clearInterval(interval); };
+    const interval = setInterval(loadAllData, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {

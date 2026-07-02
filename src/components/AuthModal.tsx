@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { XIcon } from './Icons';
+import { supabase } from '../supabaseClient';
+
 
 interface AuthModalProps {
   onSuccess: (member: any) => void;
@@ -81,34 +83,6 @@ export default function AuthModal({ onSuccess, onClose }: AuthModalProps) {
     }
   };
 
-  const getMembers = () => {
-    try {
-      const stored = localStorage.getItem('alsMembers');
-      if (stored) {
-        // Find if it is array or object format
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed)) {
-          // convert list to key-value object map
-          const map: any = {};
-          parsed.forEach((m: any) => {
-            map[m.id] = m;
-          });
-          return map;
-        }
-        return parsed;
-      }
-      return {};
-    } catch {
-      return {};
-    }
-  };
-
-  const saveMembers = (membersMap: any) => {
-    // convert map back to list format to stay synchronized with admin panel and other lists
-    const membersList = Object.values(membersMap);
-    localStorage.setItem('alsMembers', JSON.stringify(membersList));
-  };
-
   const generateAlsId = (roll: string) => {
     const clean = roll.trim().toUpperCase();
     const match = clean.match(/\d{5}$/);
@@ -119,7 +93,7 @@ export default function AuthModal({ onSuccess, onClose }: AuthModalProps) {
     return `ALS-${num}`;
   };
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError('');
 
@@ -130,8 +104,6 @@ export default function AuthModal({ onSuccess, onClose }: AuthModalProps) {
       setLoginError('Please enter your Member ID.');
       return;
     }
-
-    const members = getMembers();
 
     // Check for ADMIN login
     if (formattedId === 'ADMIN' && (formattedName === 'admin' || !formattedName)) {
@@ -150,30 +122,60 @@ export default function AuthModal({ onSuccess, onClose }: AuthModalProps) {
       return;
     }
 
-    const member = members[formattedId];
-    if (!member) {
-      setLoginError('Member ID not found. Please try again or join now.');
-      return;
+    try {
+      const { data: member, error } = await supabase
+        .from('members')
+        .select('*')
+        .eq('id', formattedId)
+        .maybeSingle();
+
+      if (error) {
+        setLoginError('Database error occurred. Please try again.');
+        console.error(error);
+        return;
+      }
+
+      if (!member) {
+        setLoginError('Member ID not found. Please try again or join now.');
+        return;
+      }
+
+      // Validate name ONLY if provided (making name optional)
+      if (formattedName && member.name.toLowerCase() !== formattedName && member.full_name?.toLowerCase() !== formattedName) {
+        setLoginError('The name entered does not match our records for this Member ID.');
+        return;
+      }
+
+      // Standardize naming to match application expectations
+      const normalized = {
+        id: member.id,
+        name: member.name,
+        fullName: member.full_name || member.name,
+        first: member.first || member.name.split(' ')[0],
+        last: member.last || member.name.split(' ').slice(1).join(' ') || 'Fellow',
+        email: member.email || undefined,
+        rollNo: member.roll_no || undefined,
+        dept: member.dept || undefined,
+        sec: member.sec || undefined,
+        year: member.year || undefined,
+        spec: member.spec || undefined,
+        designation: member.designation || undefined,
+        instagram: member.instagram || undefined,
+        linkedin: member.linkedin || undefined,
+        whatsapp: member.whatsapp || undefined,
+        avatarUrl: member.avatar_url || undefined,
+        type: member.type || 'Student',
+        isAdmin: member.is_admin || false,
+      };
+
+      onSuccess(normalized);
+    } catch (err) {
+      setLoginError('An unexpected error occurred during sign in.');
+      console.error(err);
     }
-
-    // Validate name ONLY if provided (making name optional)
-    if (formattedName && member.name.toLowerCase() !== formattedName && member.fullName?.toLowerCase() !== formattedName) {
-      setLoginError('The name entered does not match our records for this Member ID.');
-      return;
-    }
-
-    // Standardize naming
-    const normalized = {
-      ...member,
-      fullName: member.fullName || member.name,
-      first: member.first || member.name.split(' ')[0],
-      last: member.last || member.name.split(' ').slice(1).join(' ') || 'Fellow'
-    };
-
-    onSuccess(normalized);
   };
 
-  const handleSignup = (e: React.FormEvent) => {
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setSignupError('');
 
@@ -204,25 +206,74 @@ export default function AuthModal({ onSuccess, onClose }: AuthModalProps) {
 
     const fullName = `${firstName.trim()} ${lastName.trim()}`;
     const id = generateAlsId(rollNo);
-    const newMember = {
-      id,
-      name: fullName,
-      fullName,
-      first: firstName.trim(),
-      last: lastName.trim(),
-      email: email.trim(),
-      rollNo: rollNo.trim().toUpperCase(),
-      dept,
-      sec: section,
-      year,
-      spec: spec.trim() || 'Creative Writing & Literature',
-      isAdmin: false,
-    };
 
-    const members = getMembers();
-    members[id] = newMember;
-    saveMembers(members);
-    onSuccess(newMember);
+    try {
+      // Check if ID or Roll Number already exists in the database
+      const { data: existing, error: checkError } = await supabase
+        .from('members')
+        .select('id, roll_no')
+        .or(`id.eq.${id},roll_no.eq.${rollNo.trim().toUpperCase()}`)
+        .maybeSingle();
+
+      if (checkError) {
+        setSignupError('Database check failed. Please try again.');
+        console.error(checkError);
+        return;
+      }
+
+      if (existing) {
+        setSignupError('A member with this Roll Number or Member ID already exists.');
+        return;
+      }
+
+      const newMember = {
+        id,
+        name: fullName,
+        full_name: fullName,
+        first: firstName.trim(),
+        last: lastName.trim(),
+        email: email.trim(),
+        roll_no: rollNo.trim().toUpperCase(),
+        dept,
+        sec: section,
+        year,
+        spec: spec.trim() || 'Creative Writing & Literature',
+        is_admin: false,
+        type: 'Student',
+      };
+
+      const { error: insertError } = await supabase
+        .from('members')
+        .insert([newMember]);
+
+      if (insertError) {
+        setSignupError(insertError.message || 'Failed to create your ID card. Please try again.');
+        console.error(insertError);
+        return;
+      }
+
+      // Map to frontend-friendly fields
+      const normalized = {
+        id: newMember.id,
+        name: newMember.name,
+        fullName: newMember.full_name,
+        first: newMember.first,
+        last: newMember.last,
+        email: newMember.email,
+        rollNo: newMember.roll_no,
+        dept: newMember.dept,
+        sec: newMember.sec,
+        year: newMember.year,
+        spec: newMember.spec,
+        isAdmin: newMember.is_admin,
+        type: newMember.type,
+      };
+
+      onSuccess(normalized);
+    } catch (err) {
+      setSignupError('An unexpected error occurred during sign up.');
+      console.error(err);
+    }
   };
 
   return (

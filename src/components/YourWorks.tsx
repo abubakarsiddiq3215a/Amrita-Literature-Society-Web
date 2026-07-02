@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { UploadIcon, FileIcon, ClockIcon, BookIcon } from './Icons';
+import { supabase } from '../supabaseClient';
+
 
 interface Work {
   id: string;
@@ -34,12 +36,32 @@ export default function YourWorks({ member }: YourWorksProps) {
     loadWorks();
   }, []);
 
-  const loadWorks = () => {
+  const loadWorks = async () => {
     try {
-      const allWorks: Work[] = JSON.parse(localStorage.getItem('alsWorks') || '[]');
-      const studentWorks = allWorks.filter((w) => w.studentId === member.id);
-      setWorks(studentWorks);
-    } catch {
+      const { data, error } = await supabase
+        .from('works')
+        .select('*')
+        .eq('student_id', member.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      if (data) {
+        setWorks(data.map((w: any) => ({
+          id: w.id,
+          studentId: w.student_id,
+          studentName: w.student_name,
+          title: w.title,
+          category: w.category,
+          fileName: w.file_name,
+          fileSize: w.file_size,
+          content: w.content,
+          timestamp: w.timestamp,
+          status: w.status,
+        })));
+      }
+    } catch (err) {
+      console.error(err);
       setWorks([]);
     }
   };
@@ -73,32 +95,41 @@ export default function YourWorks({ member }: YourWorksProps) {
       const textResult = event.target?.result as string;
       const fileTextContent = textResult || `Binary document upload [${selectedFile.type}]`;
 
-      const newWork: Work = {
+      const newWork = {
         id: `WORK-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-        studentId: member.id,
-        studentName: member.fullName,
+        student_id: member.id,
+        student_name: member.fullName,
         title: title.trim(),
         category,
-        fileName,
-        fileSize: fileSizeStr,
+        file_name: fileName,
+        file_size: fileSizeStr,
         content: fileTextContent || 'No preview available',
         timestamp: new Date().toLocaleString(),
         status: 'Pending',
       };
 
-      try {
-        const allWorks: Work[] = JSON.parse(localStorage.getItem('alsWorks') || '[]');
-        allWorks.push(newWork);
-        localStorage.setItem('alsWorks', JSON.stringify(allWorks));
+      const saveWork = async () => {
+        try {
+          const { error: insertError } = await supabase
+            .from('works')
+            .insert([newWork]);
 
-        setTitle('');
-        setSelectedFile(null);
-        if (fileInputRef.current) fileInputRef.current.value = '';
-        setMessage('Your document has been uploaded and submitted for review!');
-        loadWorks();
-      } catch {
-        setError('Failed to save file. Please try a smaller document.');
-      }
+          if (insertError) {
+            setError(insertError.message || 'Failed to save file. Please try again.');
+            return;
+          }
+
+          setTitle('');
+          setSelectedFile(null);
+          if (fileInputRef.current) fileInputRef.current.value = '';
+          setMessage('Your document has been uploaded and submitted for review!');
+          loadWorks();
+        } catch {
+          setError('Failed to save file. Please try a smaller document.');
+        }
+      };
+
+      saveWork();
     };
 
     reader.onerror = () => {

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { supabase } from "../supabaseClient";
 
 interface ClubEvent {
   id: string;
@@ -9,16 +10,6 @@ interface ClubEvent {
   studentCoordinator?: string;
 }
 
-interface Registration {
-  id: string;
-  eventId: string;
-  studentId: string;
-  studentName: string;
-  dept: string;
-  year: string;
-  email?: string;
-  timestamp: string;
-}
 
 interface EventRegistrationProps {
   event: ClubEvent;
@@ -34,24 +25,47 @@ export default function EventRegistration({ event, memberInfo, onShowPortal, onC
 
   useEffect(() => {
     if (!memberInfo) return;
-    const regs: Registration[] = JSON.parse(localStorage.getItem("alsRegistrations") || "[]");
-    const alreadyRegistered = regs.some(r => r.eventId === event.id && r.studentId === memberInfo.id);
-    setRegistered(alreadyRegistered);
+    const checkRegistration = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('registrations')
+          .select('id')
+          .eq('event_id', event.id)
+          .eq('student_id', memberInfo.id)
+          .maybeSingle();
+
+        if (!error && data) {
+          setRegistered(true);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    checkRegistration();
   }, [event.id, memberInfo]);
 
   useEffect(() => {
     if (!memberInfo) return;
     let emailVal = memberInfo.email || "";
-    if (!emailVal) {
-      try {
-        const membersList = JSON.parse(localStorage.getItem("alsMembers") || "[]");
-        const found = membersList.find((m: any) => m.id === memberInfo.id);
-        if (found && found.email) {
-          emailVal = found.email;
-        }
-      } catch {}
+    if (emailVal) {
+      setResolvedEmail(emailVal);
+      return;
     }
-    setResolvedEmail(emailVal);
+    const fetchEmail = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('members')
+          .select('email')
+          .eq('id', memberInfo.id)
+          .maybeSingle();
+        if (!error && data && data.email) {
+          setResolvedEmail(data.email);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    fetchEmail();
   }, [memberInfo]);
 
   useEffect(() => {
@@ -65,26 +79,35 @@ export default function EventRegistration({ event, memberInfo, onShowPortal, onC
     };
   }, []);
 
-  const handleRegister = () => {
+  const handleRegister = async () => {
     if (!memberInfo) return;
     setLoading(true);
-    setTimeout(() => {
-      const regs: Registration[] = JSON.parse(localStorage.getItem("alsRegistrations") || "[]");
-      const newReg: Registration = {
+    try {
+      const newReg = {
         id: `REG-${Date.now()}`,
-        eventId: event.id,
-        studentId: memberInfo.id,
-        studentName: memberInfo.fullName,
+        event_id: event.id,
+        student_id: memberInfo.id,
+        student_name: memberInfo.fullName,
         dept: memberInfo.dept,
         year: memberInfo.year,
-        email: resolvedEmail,
+        email: resolvedEmail || null,
         timestamp: new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
       };
-      regs.push(newReg);
-      localStorage.setItem("alsRegistrations", JSON.stringify(regs));
-      setRegistered(true);
+      
+      const { error } = await supabase
+        .from('registrations')
+        .insert([newReg]);
+
+      if (error) {
+        alert("Registration failed: " + error.message);
+      } else {
+        setRegistered(true);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
       setLoading(false);
-    }, 600);
+    }
   };
 
   return (
